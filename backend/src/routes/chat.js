@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const { generateAIResponse } = require("../services/ai.service");
+const { retrieveKnowledgeMatches } = require("../services/retrieval.service"); // ✅ add
 
 const MAX_MESSAGE_LENGTH = 1000;
 
@@ -32,8 +33,8 @@ router.post("/", (req, res) => {
       .json({ error: "Message must be 1000 characters or fewer." });
   }
 
-  // H2: retrieval is not implemented yet
-  const retrievedItems = [];
+  // H3: retrieve matches from the knowledge store (A2/A3)
+  const retrievedItems = retrieveKnowledgeMatches(message);
 
   const result = generateAIResponse(message, retrievedItems);
   return res.status(200).json(result);
