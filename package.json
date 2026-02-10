@@ -1,0 +1,30 @@
+{
+  "name": "ai-knowledge-assistant",
+  "version": "1.0.0",
+  "description": "Full-stack AI-powered knowledge assistant with admin-managed content and chat-based user interaction.",
+  "main": "backend/src/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon backend/src/server.js",
+    "start": "node backend/src/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aya-mtk/ai-knowledge-assistant.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/aya-mtk/ai-knowledge-assistant/issues"
+  },
+  "homepage": "https://github.com/aya-mtk/ai-knowledge-assistant#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
+}
