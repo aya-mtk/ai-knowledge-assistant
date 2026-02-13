@@ -5,16 +5,30 @@ export async function postChat(message) {
     body: JSON.stringify({ message }),
   });
 
+  const text = await res.text();
   let data = null;
+
   try {
-    data = await res.json();
+    data = text ? JSON.parse(text) : null;
   } catch {
-    throw new Error("Invalid server response.");
+    // Non-JSON response from server
+    data = null;
   }
 
   if (!res.ok) {
-    throw new Error(data?.error || `Request failed (${res.status})`);
+    const msg =
+      (data && data.error) ||
+      `Request failed (${res.status}). Please try again.`;
+    throw new Error(msg);
   }
 
-  return data;
+  if (
+    !data ||
+    typeof data.answer !== "string" ||
+    !Array.isArray(data.sources)
+  ) {
+    throw new Error("Invalid server response. Please try again.");
+  }
+
+  return data; // { answer, sources }
 }
