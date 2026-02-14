@@ -1,21 +1,78 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { postChat } from "../lib/api";
 
-// Keep this exactly aligned with backend DEFAULT_FALLBACK (ai.service.js)
-const NO_MATCH_FALLBACK =
-  "I don’t have enough information in the knowledge base to answer that. Try rephrasing your question or add a relevant knowledge item.";
+function AICorePulse({ active }) {
+  return (
+    <div className={`ai-core ${active ? "ai-core--active" : ""}`}>
+      <div className="ai-core__inner" />
+    </div>
+  );
+}
+
+function NeuralBackground() {
+  return (
+    <svg
+      className="neural-bg"
+      viewBox="0 0 1200 800"
+      preserveAspectRatio="none"
+    >
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#3B82F6" stopOpacity="0.55" />
+          <stop offset="1" stopColor="#8B5CF6" stopOpacity="0.25" />
+        </linearGradient>
+        <filter id="blur">
+          <feGaussianBlur stdDeviation="1.2" />
+        </filter>
+      </defs>
+
+      <g stroke="url(#g)" strokeWidth="1" filter="url(#blur)">
+        <path d="M120 240 L320 140 L520 260 L760 120 L1020 240" />
+        <path d="M200 520 L420 420 L640 560 L860 430 L1100 520" />
+        <path d="M140 360 L360 300 L580 420 L820 300 L1040 380" />
+      </g>
+
+      <g fill="#3B82F6">
+        {[
+          [120, 240],
+          [320, 140],
+          [520, 260],
+          [760, 120],
+          [1020, 240],
+          [200, 520],
+          [420, 420],
+          [640, 560],
+          [860, 430],
+          [1100, 520],
+          [140, 360],
+          [360, 300],
+          [580, 420],
+          [820, 300],
+          [1040, 380],
+        ].map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r="3.6" opacity="0.75" />
+        ))}
+      </g>
+    </svg>
+  );
+}
 
 function SourcesList({ sources }) {
   if (!sources || sources.length === 0) return null;
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ fontWeight: 600, marginBottom: 6 }}>Sources</div>
-      <ul style={{ margin: 0, paddingLeft: 20 }}>
+    <div className="sources">
+      <div className="sources-title">Sources</div>
+      <ul className="sources-list">
         {sources.map((s) => (
           <li key={s.id || s.title}>
-            <strong>{s.title || "Untitled"}</strong>
-            {s.id ? <span style={{ opacity: 0.7 }}> — {s.id}</span> : null}
+            {s.url ? (
+              <a href={s.url} target="_blank" rel="noopener noreferrer">
+                {s.title || "Untitled"}
+              </a>
+            ) : (
+              <span>{s.title || "Untitled"}</span>
+            )}
           </li>
         ))}
       </ul>
@@ -23,187 +80,146 @@ function SourcesList({ sources }) {
   );
 }
 
-function Callout({ kind = "info", title, children }) {
-  const styles = useMemo(() => {
-    if (kind === "error") {
-      return {
-        background: "#2b1414",
-        border: "1px solid #5a1a1a",
-        titleColor: "#ffb4b4",
-      };
-    }
-    // info
-    return {
-      background: "#141b2b",
-      border: "1px solid #1a2a5a",
-      titleColor: "#b9d2ff",
-    };
-  }, [kind]);
-
-  return (
-    <div
-      style={{
-        marginTop: 16,
-        padding: 12,
-        borderRadius: 8,
-        background: styles.background,
-        border: styles.border,
-      }}
-    >
-      <div
-        style={{ fontWeight: 700, marginBottom: 6, color: styles.titleColor }}
-      >
-        {title}
-      </div>
-      <div style={{ opacity: 0.95 }}>{children}</div>
-    </div>
-  );
-}
-
 export default function ChatPage() {
   const [message, setMessage] = useState("");
+  const [lastUserMessage, setLastUserMessage] = useState("");
 
   const [answer, setAnswer] = useState("");
   const [sources, setSources] = useState([]);
 
   const [loading, setLoading] = useState(false);
-
-  // Separate messages so UX is clear
   const [inputError, setInputError] = useState("");
   const [apiError, setApiError] = useState("");
 
-  const isNoMatch =
-    answer === NO_MATCH_FALLBACK &&
-    Array.isArray(sources) &&
-    sources.length === 0;
-
-  async function handleSubmit(e) {
+  async function handleSend(e) {
     e.preventDefault();
-
     setInputError("");
     setApiError("");
 
     const trimmed = message.trim();
-
     if (!trimmed) {
       setInputError("Please enter a question.");
       return;
     }
 
+    // Clear previous response when sending a new one (feels cleaner)
+    setLastUserMessage(trimmed);
+    setMessage("");
+    setAnswer("");
+    setSources([]);
+
     try {
       setLoading(true);
-
-      const result = await postChat(trimmed);
-
-      setAnswer(result.answer);
-      setSources(result.sources);
-
-      // Optional: keep the input text so user can tweak; or clear it:
-      // setMessage("");
+      const res = await postChat(trimmed);
+      setAnswer(res.answer);
+      setSources(res.sources || []);
     } catch (err) {
-      setAnswer("");
-      setSources([]);
-      setApiError(err.message || "Something went wrong. Please try again.");
+      setApiError(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
   }
 
-  const showEmptyState = !loading && !apiError && !answer;
+  function applyPrompt(text) {
+    setMessage(text);
+    setInputError("");
+    setApiError("");
+  }
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ marginTop: 0 }}>Chat</h1>
+    <div className="chat-page">
+      <NeuralBackground />
 
-      <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
-        <input
-          type="text"
-          placeholder="Ask a question..."
-          value={message}
-          disabled={loading}
-          onChange={(e) => {
-            setMessage(e.target.value);
-
-            // Clear prior results as soon as user starts a new question
-            if (answer) setAnswer("");
-            if (sources.length) setSources([]);
-            if (apiError) setApiError("");
-            if (inputError) setInputError("");
-          }}
-          onKeyDown={() => {
-            // Clear “empty input” warning as soon as user starts typing again
-            if (inputError) setInputError("");
-          }}
-          style={{
-            flex: 1,
-            padding: "10px 12px",
-            borderRadius: 8,
-            border: inputError ? "1px solid #a33" : "1px solid #333",
-            background: "#1a1a1a",
-            color: "inherit",
-            outline: "none",
-          }}
-        />
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 8,
-            border: "none",
-            background: loading ? "#444" : "#1f6feb",
-            color: "white",
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
-        >
-          {loading ? "Sending…" : "Send"}
-        </button>
-      </form>
-
-      {inputError ? (
-        <div style={{ marginTop: 8, color: "#ff9b9b" }}>{inputError}</div>
-      ) : null}
-
-      {loading ? (
-        <div style={{ marginTop: 12, opacity: 0.75 }}>Thinking…</div>
-      ) : null}
-
-      {apiError ? (
-        <Callout kind="error" title="Something went wrong">
-          {apiError}
-        </Callout>
-      ) : null}
-
-      {showEmptyState ? (
-        <div style={{ marginTop: 16, opacity: 0.7 }}>
-          Ask a question to see an answer and sources.
-        </div>
-      ) : null}
-
-      {answer ? (
-        <>
-          {isNoMatch ? (
-            <Callout kind="info" title="No matching knowledge found">
-              Try different keywords, or add a relevant knowledge item in Admin.
-            </Callout>
-          ) : null}
-
-          <div
-            style={{
-              marginTop: 16,
-              padding: 16,
-              borderRadius: 8,
-              background: "#1a1a1a",
-              border: "1px solid #333",
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {answer}
-            <SourcesList sources={sources} />
+      <div className="chat-shell">
+        <div className="chat-header">
+          <AICorePulse active={loading} />
+          <div>
+            <h1 className="chat-title">Nodex</h1>
+            <p className="chat-subtitle">
+              AI-powered knowledge assistant for your documentation.
+            </p>
           </div>
-        </>
-      ) : null}
+        </div>
+
+        <div className="glass-panel">
+          <div className="messages-area">
+            {!lastUserMessage && !answer && !loading && !apiError ? (
+              <div className="empty-state">
+                <div className="empty-title">Ask your knowledge base</div>
+                <div className="empty-subtitle">Try one of these:</div>
+
+                <div className="chips">
+                  <button
+                    type="button"
+                    className="chip"
+                    onClick={() => applyPrompt("How do I reset my password?")}
+                  >
+                    How do I reset my password?
+                  </button>
+                  <button
+                    type="button"
+                    className="chip"
+                    onClick={() => applyPrompt("Explain authentication flow")}
+                  >
+                    Explain authentication flow
+                  </button>
+                  <button
+                    type="button"
+                    className="chip"
+                    onClick={() =>
+                      applyPrompt("Where is onboarding documented?")
+                    }
+                  >
+                    Where is onboarding documented?
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {apiError ? <div className="error-box">{apiError}</div> : null}
+
+            {lastUserMessage ? (
+              <div className="bubble bubble-user">
+                <div className="bubble-label">You</div>
+                <div>{lastUserMessage}</div>
+              </div>
+            ) : null}
+
+            {loading ? (
+              <div className="bubble bubble-ai">
+                <div className="bubble-label">Nodex</div>
+                <div className="typing">
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                </div>
+              </div>
+            ) : null}
+
+            {answer && !loading ? (
+              <div className="bubble bubble-ai">
+                <div className="bubble-label">Nodex</div>
+                <div className="answer-text">{answer}</div>
+              </div>
+            ) : null}
+          </div>
+
+          <form className="composer" onSubmit={handleSend}>
+            <input
+              className="composer-input"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Ask a question…"
+              disabled={loading}
+            />
+            <button className="composer-send" type="submit" disabled={loading}>
+              {loading ? "Sending…" : "Send"}
+            </button>
+          </form>
+
+          {inputError ? <div className="input-error">{inputError}</div> : null}
+        </div>
+      </div>
     </div>
   );
 }
