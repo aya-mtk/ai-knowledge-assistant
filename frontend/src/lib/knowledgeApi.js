@@ -75,3 +75,26 @@ export async function deleteKnowledge(id) {
 
   return true;
 }
+
+export async function loadDemoPack({ force = false } = {}) {
+  const url = force
+    ? "/api/knowledge/demo-pack?force=true"
+    : "/api/knowledge/demo-pack";
+  const res = await fetch(url, { method: "POST" });
+
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
+
+  if (!res.ok || !data?.ok) {
+    const msg =
+      data?.error?.message || `Failed to load demo pack (${res.status}).`;
+    throw new Error(msg);
+  }
+
+  return data.data; // { insertedCount }
+}

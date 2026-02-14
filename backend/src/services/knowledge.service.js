@@ -1,176 +1,217 @@
 // backend/src/services/knowledge.service.js
+const fs = require("fs");
+const path = require("path");
 
-const store = []; // in-memory array
+// Store file location: backend/data/knowledge.json
+const DATA_DIR = path.join(__dirname, "..", "..", "data");
+const DATA_FILE = path.join(DATA_DIR, "knowledge.json");
+
+// In-memory store (loaded from file at startup)
+let store = loadStore();
+
+/**
+ * Load store from disk. If file doesn't exist, return empty array.
+ */
+function loadStore() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+    if (!fs.existsSync(DATA_FILE)) {
+      // First run: create an empty file for clarity
+      fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2), "utf-8");
+      return [];
+    }
+
+    const raw = fs.readFileSync(DATA_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.error("Failed to load knowledge store:", err);
+    return [];
+  }
+}
+
+/**
+ * Save store to disk (atomic write).
+ */
+function saveStore() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+    const tmpFile = `${DATA_FILE}.tmp`;
+    fs.writeFileSync(tmpFile, JSON.stringify(store, null, 2), "utf-8");
+    fs.renameSync(tmpFile, DATA_FILE);
+  } catch (err) {
+    console.error("Failed to save knowledge store:", err);
+  }
+}
 
 function makeId() {
-  // Simple stable id. Good enough for demo.
   return `k_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
 function normalizeString(value) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length ? trimmed : null;
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function normalizeTags(tags) {
-  if (tags === undefined) return [];
-  if (!Array.isArray(tags)) return null;
-
-  const cleaned = tags
-    .filter((t) => typeof t === "string")
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0);
-
-  // dedupe (case-sensitive)
-  return Array.from(new Set(cleaned));
+  if (!Array.isArray(tags)) return [];
+  return tags
+    .map((t) => (typeof t === "string" ? t.trim() : ""))
+    .filter(Boolean);
 }
 
-function makeValidationError(details) {
-  return {
-    code: "VALIDATION_ERROR",
-    message: "Invalid knowledge data",
-    details,
-  };
-}
-
-function validateCreate(input) {
-  const details = [];
-
-  const title = normalizeString(input?.title);
-  if (!title) details.push({ field: "title", message: "Title is required" });
-
-  const content = normalizeString(input?.content);
-  if (!content)
-    details.push({ field: "content", message: "Content is required" });
-
-  const tags = normalizeTags(input?.tags);
-  if (tags === null)
-    details.push({
-      field: "tags",
-      message: "Tags must be an array of strings",
-    });
-
-  if (details.length) return { ok: false, error: makeValidationError(details) };
-
-  return { ok: true, value: { title, content, tags } };
-}
-
-function validateUpdate(input) {
-  const details = [];
-
-  const hasTitle = Object.prototype.hasOwnProperty.call(input || {}, "title");
-  const hasContent = Object.prototype.hasOwnProperty.call(
-    input || {},
-    "content"
-  );
-  const hasTags = Object.prototype.hasOwnProperty.call(input || {}, "tags");
-
-  if (!hasTitle && !hasContent && !hasTags) {
+function validateItemPayload(payload, { allowPartial = false } = {}) {
+  if (!payload || typeof payload !== "object") {
     return {
       ok: false,
-      error: makeValidationError([
-        {
-          field: "body",
-          message: "At least one of title, content, tags is required",
-        },
-      ]),
+      error: { code: "VALIDATION_ERROR", message: "Body must be an object." },
     };
   }
 
-  let title;
-  if (hasTitle) {
-    title = normalizeString(input.title);
-    if (!title)
-      details.push({
-        field: "title",
-        message: "Title must be a non-empty string",
-      });
+  const title = normalizeString(payload.title);
+  const content = normalizeString(payload.content);
+  const tags = normalizeTags(payload.tags);
+
+  if (!allowPartial) {
+    if (!title) {
+      return {
+        ok: false,
+        error: { code: "VALIDATION_ERROR", message: "Title is required." },
+      };
+    }
+    if (!content) {
+      return {
+        ok: false,
+        error: { code: "VALIDATION_ERROR", message: "Content is required." },
+      };
+    }
+  } else {
+    // partial update: if provided, must be valid
+    if ("title" in payload && !title) {
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Title must be non-empty.",
+        },
+      };
+    }
+    if ("content" in payload && !content) {
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Content must be non-empty.",
+        },
+      };
+    }
   }
 
-  let content;
-  if (hasContent) {
-    content = normalizeString(input.content);
-    if (!content)
-      details.push({
-        field: "content",
-        message: "Content must be a non-empty string",
-      });
+  const url = normalizeString(payload.url);
+  if (
+    "url" in payload &&
+    payload.url != null &&
+    typeof payload.url !== "string"
+  ) {
+    return {
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: "URL must be a string." },
+    };
   }
-
-  let tags;
-  if (hasTags) {
-    tags = normalizeTags(input.tags);
-    if (tags === null)
-      details.push({
-        field: "tags",
-        message: "Tags must be an array of strings",
-      });
-  }
-
-  if (details.length) return { ok: false, error: makeValidationError(details) };
 
   return {
     ok: true,
-    value: {
-      ...(hasTitle ? { title } : {}),
-      ...(hasContent ? { content } : {}),
-      ...(hasTags ? { tags } : {}),
-    },
+    value: { title, content, tags, ...(url ? { url } : {}) },
   };
 }
 
-// Public API
-
+/**
+ * Public API (same shape you already use)
+ */
 function list() {
-  // Return a copy to prevent accidental mutation from callers
-  return store.map((x) => ({ ...x, tags: [...x.tags] }));
+  return store.slice();
 }
 
 function getById(id) {
-  const item = store.find((x) => x.id === id);
-  if (!item) return null;
-  return { ...item, tags: [...item.tags] };
+  const needle = normalizeString(id);
+  if (!needle) return null;
+  return store.find((x) => x.id === needle) || null;
 }
 
-function create(input) {
-  const result = validateCreate(input);
-  if (!result.ok) return result;
+function create(payload) {
+  const v = validateItemPayload(payload);
+  if (!v.ok) return v;
 
   const item = {
     id: makeId(),
-    title: result.value.title,
-    content: result.value.content,
-    tags: result.value.tags,
+    title: v.value.title,
+    content: v.value.content,
+    tags: v.value.tags,
+    ...(v.value.url ? { url: v.value.url } : {}),
   };
 
-  store.unshift(item); // newest first (nice for admin list)
-  return { ok: true, value: { ...item, tags: [...item.tags] } };
+  store.unshift(item);
+  saveStore();
+  return { ok: true, value: item };
 }
 
-function update(id, input) {
-  const index = store.findIndex((x) => x.id === id);
-  if (index === -1) return { ok: true, value: null };
+function update(id, payload) {
+  const needle = normalizeString(id);
+  if (!needle) {
+    return {
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: "ID is required." },
+    };
+  }
 
-  const result = validateUpdate(input);
-  if (!result.ok) return result;
+  const existingIndex = store.findIndex((x) => x.id === needle);
+  if (existingIndex === -1) {
+    // service contract in your routes: value null => not found
+    return { ok: true, value: null };
+  }
 
-  const current = store[index];
+  const v = validateItemPayload(payload, { allowPartial: true });
+  if (!v.ok) return v;
+
+  const existing = store[existingIndex];
+
   const updated = {
-    ...current,
-    ...result.value,
+    ...existing,
+    ...(payload.title !== undefined ? { title: v.value.title } : {}),
+    ...(payload.content !== undefined ? { content: v.value.content } : {}),
+    ...(payload.tags !== undefined ? { tags: v.value.tags } : {}),
+    ...(payload.url !== undefined ? { url: v.value.url || "" } : {}),
   };
 
-  store[index] = updated;
-  return { ok: true, value: { ...updated, tags: [...updated.tags] } };
+  // If url becomes empty string, remove it for cleanliness
+  if (updated.url === "") delete updated.url;
+
+  store[existingIndex] = updated;
+  saveStore();
+  return { ok: true, value: updated };
 }
 
 function remove(id) {
-  const index = store.findIndex((x) => x.id === id);
-  if (index === -1) return { ok: true, value: false };
+  const needle = normalizeString(id);
+  if (!needle) {
+    return {
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: "ID is required." },
+    };
+  }
 
-  store.splice(index, 1);
-  return { ok: true, value: true };
+  const existingIndex = store.findIndex((x) => x.id === needle);
+  if (existingIndex === -1) {
+    return { ok: true, value: null };
+  }
+
+  const deleted = store[existingIndex];
+  store.splice(existingIndex, 1);
+  saveStore();
+
+  return { ok: true, value: deleted };
 }
 
 module.exports = {
@@ -179,8 +220,4 @@ module.exports = {
   create,
   update,
   remove,
-
-  // exporting validators can help later in routes/tests, optional:
-  // validateCreate,
-  // validateUpdate,
 };

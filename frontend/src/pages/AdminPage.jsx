@@ -4,210 +4,50 @@ import {
   createKnowledge,
   updateKnowledge,
   deleteKnowledge,
+  loadDemoPack,
 } from "../lib/knowledgeApi";
 
+import backgroundAdmin from "../assets/backgroundAdmin.png"; // stars background
+import fullBackground from "../assets/fullBackground.png"; // cube empty-state bg
+import adminCore from "../assets/adminCore3.png"; // header core icon
+
 function parseTags(tagsText) {
-  // "a, b, c" -> ["a","b","c"]
   return tagsText
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
 }
 
-function Callout({ kind = "info", title, children }) {
-  const styles = useMemo(() => {
-    if (kind === "error") {
-      return {
-        background: "#2b1414",
-        border: "1px solid #5a1a1a",
-        titleColor: "#ffb4b4",
-      };
-    }
-    return {
-      background: "#141b2b",
-      border: "1px solid #1a2a5a",
-      titleColor: "#b9d2ff",
-    };
-  }, [kind]);
-
+function includesQuery(item, q) {
+  if (!q) return true;
+  const s = q.toLowerCase();
   return (
-    <div
-      style={{
-        marginTop: 16,
-        padding: 12,
-        borderRadius: 8,
-        background: styles.background,
-        border: styles.border,
-      }}
-    >
-      <div
-        style={{ fontWeight: 700, marginBottom: 6, color: styles.titleColor }}
-      >
-        {title}
-      </div>
-      <div style={{ opacity: 0.95 }}>{children}</div>
-    </div>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <label style={{ display: "block" }}>
-      <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>{label}</div>
-      {children}
-    </label>
-  );
-}
-
-function ItemEditor({ item, onSave, onCancel, saving }) {
-  const [title, setTitle] = useState(item.title || "");
-  const [content, setContent] = useState(item.content || "");
-  const [tagsText, setTagsText] = useState(
-    Array.isArray(item.tags) ? item.tags.join(", ") : ""
-  );
-  const [localError, setLocalError] = useState("");
-
-  function validate() {
-    const t = title.trim();
-    const c = content.trim();
-    if (!t) return "Title is required.";
-    if (!c) return "Content is required.";
-    return "";
-  }
-
-  async function handleSave() {
-    setLocalError("");
-    const msg = validate();
-    if (msg) {
-      setLocalError(msg);
-      return;
-    }
-
-    const payload = {
-      title: title.trim(),
-      content: content.trim(),
-      tags: parseTags(tagsText),
-    };
-
-    await onSave(payload);
-  }
-
-  return (
-    <div
-      style={{
-        padding: 12,
-        borderRadius: 8,
-        border: "1px solid #333",
-        background: "#171717",
-      }}
-    >
-      <div style={{ display: "grid", gap: 10 }}>
-        <Field label="Title">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={saving}
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid #333",
-              background: "#1a1a1a",
-              color: "inherit",
-            }}
-          />
-        </Field>
-
-        <Field label="Content">
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            disabled={saving}
-            rows={4}
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid #333",
-              background: "#1a1a1a",
-              color: "inherit",
-              resize: "vertical",
-            }}
-          />
-        </Field>
-
-        <Field label="Tags (comma-separated)">
-          <input
-            value={tagsText}
-            onChange={(e) => setTagsText(e.target.value)}
-            disabled={saving}
-            placeholder="password, auth"
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid #333",
-              background: "#1a1a1a",
-              color: "inherit",
-            }}
-          />
-        </Field>
-
-        {localError ? (
-          <div style={{ color: "#ff9b9b" }}>{localError}</div>
-        ) : null}
-
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={saving}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid #333",
-              background: "#222",
-              color: "white",
-              cursor: saving ? "not-allowed" : "pointer",
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "none",
-              background: saving ? "#444" : "#1f6feb",
-              color: "white",
-              cursor: saving ? "not-allowed" : "pointer",
-            }}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
-      </div>
-    </div>
+    (item.title || "").toLowerCase().includes(s) ||
+    (item.content || "").toLowerCase().includes(s) ||
+    (Array.isArray(item.tags)
+      ? item.tags.join(" ").toLowerCase()
+      : ""
+    ).includes(s)
   );
 }
 
 export default function AdminPage() {
   const [items, setItems] = useState([]);
-
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
+  const [loadingDemo, setLoadingDemo] = useState(false);
 
-  // Create form
+  // create form
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
   const [tagsText, setTagsText] = useState("");
-  const [formError, setFormError] = useState("");
+  const [content, setContent] = useState("");
   const [creating, setCreating] = useState(false);
+  const [formError, setFormError] = useState("");
 
-  // Editing state
+  // list/search
+  const [query, setQuery] = useState("");
+
+  // edit state
   const [editingId, setEditingId] = useState(null);
   const [savingId, setSavingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -222,6 +62,19 @@ export default function AdminPage() {
       setPageError(err.message || "Failed to load knowledge items.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleLoadDemo(force = false) {
+    setPageError("");
+    try {
+      setLoadingDemo(true);
+      await loadDemoPack({ force });
+      await refresh(); // refresh list after insert
+    } catch (err) {
+      setPageError(err.message || "Failed to load demo knowledge.");
+    } finally {
+      setLoadingDemo(false);
     }
   }
 
@@ -240,10 +93,7 @@ export default function AdminPage() {
     setFormError("");
 
     const msg = validateCreate();
-    if (msg) {
-      setFormError(msg);
-      return;
-    }
+    if (msg) return setFormError(msg);
 
     const payload = {
       title: title.trim(),
@@ -254,12 +104,11 @@ export default function AdminPage() {
     try {
       setCreating(true);
       const created = await createKnowledge(payload);
-      // update list immediately
       setItems((prev) => [created, ...prev]);
-      // reset form
+      setQuery(""); // ✅ add this
       setTitle("");
-      setContent("");
       setTagsText("");
+      setContent("");
     } catch (err) {
       setFormError(err.message || "Failed to create item.");
     } finally {
@@ -267,10 +116,10 @@ export default function AdminPage() {
     }
   }
 
-  async function handleSaveEdit(id, payload) {
+  async function handleSave(id, next) {
     try {
       setSavingId(id);
-      const updated = await updateKnowledge(id, payload);
+      const updated = await updateKnowledge(id, next);
       setItems((prev) => prev.map((x) => (x.id === id ? updated : x)));
       setEditingId(null);
     } catch (err) {
@@ -298,248 +147,378 @@ export default function AdminPage() {
     }
   }
 
+  const filtered = useMemo(
+    () => items.filter((x) => includesQuery(x, query)),
+    [items, query]
+  );
+
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ marginTop: 0 }}>Admin</h1>
-      <div style={{ opacity: 0.8 }}>
-        Manage knowledge items used by the chat assistant.
-      </div>
+    <div
+      className="admin-page"
+      style={{
+        "--admin-bg": `url(${backgroundAdmin})`,
+        "--cube-bg": `url(${fullBackground})`,
+      }}
+    >
+      <div className="admin-shell">
+        {/* hero */}
+        <div className="admin-hero">
+          <div className="admin-core-wrapper">
+            <img src={adminCore} className="admin-core-img" alt="AI core" />
+          </div>
 
-      {pageError ? (
-        <Callout kind="error" title="Error">
-          {pageError}
-        </Callout>
-      ) : null}
-
-      {/* Create */}
-      <div
-        style={{
-          marginTop: 16,
-          padding: 16,
-          borderRadius: 8,
-          border: "1px solid #333",
-          background: "#121212",
-        }}
-      >
-        <div style={{ fontWeight: 700, marginBottom: 10 }}>
-          Add knowledge item
+          <div>
+            <h1 className="admin-title">Admin Console</h1>
+            <p className="admin-subtitle">
+              Manage your knowledge intelligence engine
+            </p>
+          </div>
         </div>
 
-        <form onSubmit={handleCreate} style={{ display: "grid", gap: 10 }}>
-          <Field label="Title">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              disabled={creating}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 8,
-                border:
-                  formError && !title.trim()
-                    ? "1px solid #a33"
-                    : "1px solid #333",
-                background: "#1a1a1a",
-                color: "inherit",
-              }}
-            />
-          </Field>
-
-          <Field label="Content">
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              disabled={creating}
-              rows={4}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 8,
-                border:
-                  formError && !content.trim()
-                    ? "1px solid #a33"
-                    : "1px solid #333",
-                background: "#1a1a1a",
-                color: "inherit",
-                resize: "vertical",
-              }}
-            />
-          </Field>
-
-          <Field label="Tags (comma-separated)">
-            <input
-              value={tagsText}
-              onChange={(e) => setTagsText(e.target.value)}
-              disabled={creating}
-              placeholder="password, auth"
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 8,
-                border: "1px solid #333",
-                background: "#1a1a1a",
-                color: "inherit",
-              }}
-            />
-          </Field>
-
-          {formError ? (
-            <div style={{ color: "#ff9b9b" }}>{formError}</div>
-          ) : null}
-
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button
-              type="submit"
-              disabled={creating}
-              style={{
-                padding: "10px 14px",
-                borderRadius: 8,
-                border: "none",
-                background: creating ? "#444" : "#1f6feb",
-                color: "white",
-                cursor: creating ? "not-allowed" : "pointer",
-              }}
-            >
-              {creating ? "Adding…" : "Add item"}
-            </button>
+        {/* status bar */}
+        <div className="status-bar">
+          <div className="status-card">
+            <div className="status-label">Knowledge Nodes</div>
+            <div className="status-value">{items.length}</div>
           </div>
-        </form>
-      </div>
 
-      {/* List */}
-      <div style={{ marginTop: 18 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <h2 style={{ margin: 0 }}>Knowledge items</h2>
+          <div className="status-card">
+            <div className="status-label">Status</div>
+            <div style={{ marginTop: 10 }}>
+              <span className="status-pill">
+                <span className="dot-green" /> Active
+              </span>
+            </div>
+          </div>
+
+          <div className="status-card">
+            <div className="status-label">Embedding Index</div>
+            <div className="status-value">—</div>
+          </div>
+
+          <div className="status-card">
+            <div className="status-label">System Health</div>
+            <div className="status-value" style={{ color: "#a7f3d0" }}>
+              Optimal
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}
+        >
           <button
             type="button"
-            onClick={refresh}
-            disabled={loading}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 8,
-              border: "1px solid #333",
-              background: "#222",
-              color: "white",
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
+            className="btn-glow"
+            disabled={loadingDemo}
+            onClick={() => handleLoadDemo(false)}
           >
-            {loading ? "Refreshing…" : "Refresh"}
+            {loadingDemo ? "Loading Demo Pack…" : "Load Demo Knowledge Pack"}
+          </button>
+
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={loadingDemo}
+            onClick={() => handleLoadDemo(true)}
+          >
+            Reset + Reload Demo Pack
           </button>
         </div>
 
-        {loading ? (
-          <div style={{ marginTop: 12, opacity: 0.75 }}>Loading…</div>
-        ) : null}
+        {/* Add item panel */}
+        <div className="admin-panel">
+          <h2 className="panel-title">Add Knowledge Item</h2>
 
-        {!loading && items.length === 0 ? (
-          <div style={{ marginTop: 12, opacity: 0.75 }}>
-            No knowledge items yet. Add one above to enable grounded chat
-            answers.
-          </div>
-        ) : null}
+          <form onSubmit={handleCreate}>
+            <div className="grid-2">
+              <div>
+                <div className="field-label">Title</div>
+                <input
+                  className="input"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Password Reset Guide"
+                  disabled={creating}
+                />
+              </div>
 
-        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-          {items.map((item) => {
-            const isEditing = editingId === item.id;
-            const isSaving = savingId === item.id;
-            const isDeleting = deletingId === item.id;
+              <div>
+                <div className="field-label">Tags</div>
+                <input
+                  className="input"
+                  value={tagsText}
+                  onChange={(e) => setTagsText(e.target.value)}
+                  placeholder="e.g. password, auth, security"
+                  disabled={creating}
+                />
+              </div>
+            </div>
 
-            return (
-              <div
-                key={item.id}
-                style={{
-                  padding: 12,
-                  borderRadius: 8,
-                  border: "1px solid #333",
-                  background: "#121212",
-                }}
+            <div style={{ marginTop: 12 }}>
+              <div className="field-label">Content</div>
+              <textarea
+                className="textarea"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Enter knowledge content..."
+                disabled={creating}
+              />
+            </div>
+
+            {formError ? <div className="input-error">{formError}</div> : null}
+            {pageError ? <div className="error-box">{pageError}</div> : null}
+
+            <div className="admin-actions">
+              <button className="btn-glow" type="submit" disabled={creating}>
+                <span style={{ marginRight: 10, opacity: 0.95 }}>⚡</span>
+                {creating ? "Adding…" : "Add Item"}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Items panel */}
+        <div className="admin-panel">
+          <div className="list-header">
+            <h2 className="panel-title" style={{ margin: 0 }}>
+              Knowledge Items
+            </h2>
+
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={refresh}
+                disabled={loading}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700 }}>
-                      {item.title || "Untitled"}
-                    </div>
-                    <div style={{ opacity: 0.7, fontSize: 12 }}>{item.id}</div>
-                    {Array.isArray(item.tags) && item.tags.length ? (
-                      <div
-                        style={{ marginTop: 6, opacity: 0.85, fontSize: 13 }}
-                      >
-                        Tags: {item.tags.join(", ")}
-                      </div>
-                    ) : null}
+                {loading ? "Refreshing…" : "Refresh"}
+              </button>
+
+              <input
+                className="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search items..."
+              />
+            </div>
+          </div>
+
+          {loading ? <div style={{ opacity: 0.75 }}>Loading…</div> : null}
+
+          {/* Show empty state only if there are no items at all */}
+          {!loading && items.length === 0 ? (
+            <div className="empty-state-bg">
+              <div className="empty-content">
+                <div className="empty-center">
+                  <div className="empty-h1">No Knowledge Items Yet</div>
+                  <div className="empty-p">
+                    Add your first knowledge item to power the AI assistant.
                   </div>
 
+                  <button
+                    type="button"
+                    className="btn-cta"
+                    onClick={() => {
+                      const el = document.querySelector(
+                        'input[placeholder="e.g. Password Reset Guide"]'
+                      );
+                      if (el) el.focus();
+                    }}
+                  >
+                    <span className="btn-cta-plus">+</span>
+                    Add Your First Item
+                  </button>
+
+                  <div className="example-row">
+                    <span className="example-label">Example:</span>
+                    <div className="example-chips">
+                      {[
+                        "Authentication",
+                        "API Docs",
+                        "Troubleshooting",
+                        "Onboarding",
+                      ].map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          className="example-chip"
+                          onClick={() => setTitle(t)} // ✅ optional improvement
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* If items exist but search filtered to none */}
+          {!loading && items.length > 0 && filtered.length === 0 ? (
+            <div style={{ opacity: 0.8, padding: "12px 4px" }}>
+              No results match your search.
+            </div>
+          ) : null}
+
+          <div className="items">
+            {filtered.map((item) => {
+              const isEditing = editingId === item.id;
+              const isSaving = savingId === item.id;
+              const isDeleting = deletingId === item.id;
+
+              return (
+                <div key={item.id} className="item-card">
                   <div
                     style={{
                       display: "flex",
-                      gap: 8,
-                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      gap: 12,
                     }}
                   >
-                    <button
-                      type="button"
-                      onClick={() => setEditingId(isEditing ? null : item.id)}
-                      disabled={isDeleting || loading}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 8,
-                        border: "1px solid #333",
-                        background: "#222",
-                        color: "white",
-                        cursor: isDeleting ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      {isEditing ? "Close" : "Edit"}
-                    </button>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="item-title">
+                        {item.title || "Untitled"}
+                      </div>
+                      <div className="item-meta item-id">ID: {item.id}</div>
+                      {Array.isArray(item.tags) && item.tags.length ? (
+                        <div className="item-meta">
+                          Tags: {item.tags.join(", ")}
+                        </div>
+                      ) : null}
+                    </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(item.id)}
-                      disabled={isDeleting || isSaving || loading}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 8,
-                        border: "1px solid #5a1a1a",
-                        background: isDeleting ? "#3a1a1a" : "#2b1414",
-                        color: "white",
-                        cursor: isDeleting ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      {isDeleting ? "Deleting…" : "Delete"}
-                    </button>
+                    <div className="item-actions">
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        onClick={() => setEditingId(isEditing ? null : item.id)}
+                        disabled={isDeleting}
+                      >
+                        {isEditing ? "Close" : "Edit"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn-danger"
+                        onClick={() => handleDelete(item.id)}
+                        disabled={isDeleting || isSaving}
+                      >
+                        {isDeleting ? "Deleting…" : "Delete"}
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <div
-                  style={{
-                    marginTop: 10,
-                    whiteSpace: "pre-wrap",
-                    opacity: 0.95,
-                  }}
-                >
-                  {item.content}
-                </div>
-
-                {isEditing ? (
-                  <div style={{ marginTop: 12 }}>
-                    <ItemEditor
+                  {isEditing ? (
+                    <EditBlock
                       item={item}
                       saving={isSaving}
+                      onSave={(next) => handleSave(item.id, next)}
                       onCancel={() => setEditingId(null)}
-                      onSave={(payload) => handleSaveEdit(item.id, payload)}
                     />
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
+                  ) : (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        whiteSpace: "pre-wrap",
+                        opacity: 0.95,
+                      }}
+                    >
+                      {item.content}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function EditBlock({ item, saving, onSave, onCancel }) {
+  const [title, setTitle] = useState(item.title || "");
+  const [tagsText, setTagsText] = useState(
+    Array.isArray(item.tags) ? item.tags.join(", ") : ""
+  );
+  const [content, setContent] = useState(item.content || "");
+  const [err, setErr] = useState("");
+
+  function validate() {
+    if (!title.trim()) return "Title is required.";
+    if (!content.trim()) return "Content is required.";
+    return "";
+  }
+
+  async function save() {
+    setErr("");
+    const msg = validate();
+    if (msg) return setErr(msg);
+
+    await onSave({
+      title: title.trim(),
+      content: content.trim(),
+      tags: tagsText
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+    });
+  }
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="grid-2">
+        <div>
+          <div className="field-label">Title</div>
+          <input
+            className="input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            disabled={saving}
+          />
+        </div>
+        <div>
+          <div className="field-label">Tags</div>
+          <input
+            className="input"
+            value={tagsText}
+            onChange={(e) => setTagsText(e.target.value)}
+            disabled={saving}
+          />
+        </div>
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        <div className="field-label">Content</div>
+        <textarea
+          className="textarea"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          disabled={saving}
+        />
+      </div>
+
+      {err ? <div className="input-error">{err}</div> : null}
+
+      <div className="admin-actions">
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={onCancel}
+          disabled={saving}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn-glow"
+          onClick={save}
+          disabled={saving}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
       </div>
     </div>
   );
