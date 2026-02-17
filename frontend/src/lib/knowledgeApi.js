@@ -98,3 +98,22 @@ export async function loadDemoPack({ force = false } = {}) {
 
   return data.data; // { insertedCount }
 }
+
+export async function deleteAllKnowledge() {
+  const res = await fetch("/api/knowledge", { method: "DELETE" });
+
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
+
+  if (!res.ok || !data?.ok) {
+    const msg = data?.error?.message || `Failed to delete all (${res.status}).`;
+    throw new Error(msg);
+  }
+
+  return data.data; // { deletedCount }
+}

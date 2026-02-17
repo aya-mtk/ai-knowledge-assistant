@@ -33,6 +33,16 @@ router.get("/:id", (req, res) => {
   return res.json({ ok: true, data: item });
 });
 
+router.delete("/", (req, res) => {
+  const existing = knowledge.list();
+
+  for (const item of existing) {
+    knowledge.remove(item.id);
+  }
+
+  return res.json({ ok: true, data: { deletedCount: existing.length } });
+});
+
 // POST /api/knowledge/demo-pack
 router.post("/demo-pack", (req, res) => {
   // Optional: prevent duplicates unless forced

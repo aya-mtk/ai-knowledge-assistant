@@ -972,6 +972,13 @@
   font-size: 16px;
 }
 
+.admin-empty-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 520px; /* gives that “one screen” feel */
+}
+
 /* CTA button like pic1 */
 .btn-cta {
   margin-top: 18px;
@@ -1045,4 +1052,175 @@
   transform: translateY(-1px);
   background: rgba(59, 130, 246, 0.1);
   border-color: rgba(59, 130, 246, 0.22);
+}
+
+/* ===== Nodex Header (Glow + Glass) ===== */
+.nodex-header {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #070a10;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nodex-header-bg {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.7;
+  background: radial-gradient(
+      ellipse at bottom,
+      rgba(59, 130, 246, 0.2),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse at center,
+      rgba(139, 92, 246, 0.12),
+      transparent 60%
+    );
+}
+
+.nodex-header-inner {
+  max-width: 1700px; /* ✅ wider header */
+  margin: 0 auto;
+  padding: 16px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.nodex-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto; /* ✅ keep left section stable */
+}
+
+.nodex-brand-title {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(90deg, #60a5fa, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.nodex-brand-subtitle {
+  margin-top: 2px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.nodex-nav {
+  margin-left: auto;
+  margin-right: 12px; /* 👈 add this */
+  width: 560px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(18px);
+  padding: 10px 12px;
+}
+
+.nodex-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.nodex-link {
+  position: relative;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 2px;
+  transition: color 150ms ease;
+}
+
+.nodex-link:hover {
+  color: rgba(255, 255, 255, 0.95);
+}
+.nodex-link.active {
+  color: white;
+}
+
+.nodex-underline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -10px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(59, 130, 246, 0),
+    rgba(96, 165, 250, 1),
+    rgba(167, 139, 250, 0)
+  );
+  box-shadow: 0 0 10px rgba(96, 165, 250, 0.35);
+}
+
+.nodex-profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.nodex-profile:hover {
+  color: white;
+}
+
+.nodex-avatar {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* small screens */
+@media (max-width: 900px) {
+  .nodex-header-inner {
+    padding: 14px 16px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .nodex-nav {
+    width: 100%;
+  }
+  .nodex-nav-links {
+    flex-wrap: wrap;
+  }
+}
+
+.nodex-logo-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.nodex-logo {
+  height: 46px;
+  width: auto;
+  object-fit: contain;
+
+  /* Keep your original glow effect */
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.35));
 }

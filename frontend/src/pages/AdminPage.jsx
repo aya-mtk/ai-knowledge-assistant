@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   listKnowledge,
   createKnowledge,
   updateKnowledge,
   deleteKnowledge,
   loadDemoPack,
+  deleteAllKnowledge, // ✅ add
 } from "../lib/knowledgeApi";
 
 import backgroundAdmin from "../assets/backgroundAdmin.png"; // stars background
@@ -52,6 +53,9 @@ export default function AdminPage() {
   const [savingId, setSavingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
+  const [showManualForm, setShowManualForm] = useState(false);
+  const titleInputRef = useRef(null);
+
   async function refresh() {
     setPageError("");
     setLoading(true);
@@ -77,6 +81,12 @@ export default function AdminPage() {
       setLoadingDemo(false);
     }
   }
+
+  useEffect(() => {
+    if (showManualForm) {
+      setTimeout(() => titleInputRef.current?.focus(), 0);
+    }
+  }, [showManualForm]);
 
   useEffect(() => {
     refresh();
@@ -147,10 +157,122 @@ export default function AdminPage() {
     }
   }
 
+  async function handleDeleteAll() {
+    const ok = window.confirm(
+      "Delete ALL knowledge items? This cannot be undone."
+    );
+    if (!ok) return;
+
+    setPageError("");
+    try {
+      await deleteAllKnowledge();
+      setQuery("");
+      await refresh();
+    } catch (err) {
+      setPageError(err.message || "Failed to delete all items.");
+    }
+  }
+
   const filtered = useMemo(
     () => items.filter((x) => includesQuery(x, query)),
     [items, query]
   );
+
+  if (items.length === 0 && !showManualForm) {
+    return (
+      <div
+        className="admin-page"
+        style={{
+          "--admin-bg": `url(${backgroundAdmin})`,
+          "--cube-bg": `url(${fullBackground})`,
+        }}
+      >
+        <div className="admin-shell">
+          <div className="admin-hero">
+            <div className="admin-core-wrapper">
+              <img src={adminCore} className="admin-core-img" alt="AI core" />
+            </div>
+
+            <div>
+              <h1 className="admin-title">Admin Console</h1>
+              <p className="admin-subtitle">
+                Manage your knowledge intelligence engine
+              </p>
+            </div>
+          </div>
+
+          {/* Centered one-page empty state */}
+          <div className="admin-empty-page">
+            <div className="empty-state-bg">
+              <div className="empty-content">
+                <div className="empty-center">
+                  <div className="empty-h1">
+                    {loading
+                      ? "Loading knowledge base…"
+                      : "No Knowledge Items Yet"}
+                  </div>
+                  <div className="empty-p">
+                    Load the demo pack or add your first item to start testing
+                    in Chat.
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      justifyContent: "center",
+                      flexWrap: "wrap",
+                      marginTop: 18,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="btn-glow"
+                      disabled={loadingDemo}
+                      onClick={() => handleLoadDemo(false)}
+                    >
+                      {loadingDemo ? "Loading…" : "Load Demo Knowledge Pack"}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => setShowManualForm(true)}
+                    >
+                      Add Item Manually
+                    </button>
+                  </div>
+
+                  <div className="example-row" style={{ marginTop: 18 }}>
+                    <span className="example-label">Example:</span>
+                    <div className="example-chips">
+                      {[
+                        "Authentication",
+                        "API Docs",
+                        "Troubleshooting",
+                        "Onboarding",
+                      ].map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          className="example-chip"
+                          onClick={() => setTitle(t)}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {pageError ? <div className="error-box">{pageError}</div> : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -235,6 +357,7 @@ export default function AdminPage() {
               <div>
                 <div className="field-label">Title</div>
                 <input
+                  ref={titleInputRef}
                   className="input"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -293,6 +416,15 @@ export default function AdminPage() {
                 disabled={loading}
               >
                 {loading ? "Refreshing…" : "Refresh"}
+              </button>
+
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={handleDeleteAll}
+                disabled={loading}
+              >
+                Delete All
               </button>
 
               <input

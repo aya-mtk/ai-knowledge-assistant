@@ -3,6 +3,7 @@ import ChatPage from "./pages/ChatPage";
 import AdminPage from "./pages/AdminPage";
 import "./App.css";
 import logo from "./assets/logo2.png";
+import NodexHeader from "./components/NodexHeader";
 
 const PAGES = {
   CHAT: "chat",
@@ -25,12 +26,13 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="header">
-        <div className="brand">
-          <img src={logo} alt="Nodex logo" className="brandLogo" />
-          <span className="brandText">Nodex – Knowledge Assistant</span>
-        </div>
-      </header>
+      <NodexHeader
+        active={page === "admin" ? "Knowledge Base" : "Dashboard"}
+        onNavigate={(label) => {
+          if (label === "Knowledge Base") setPage("admin");
+          if (label === "Dashboard") setPage("chat");
+        }}
+      />
 
       <main className="main">
         {page === PAGES.CHAT ? (
