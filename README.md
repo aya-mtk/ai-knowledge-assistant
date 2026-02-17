@@ -105,9 +105,11 @@ The system can support:
 🚀 Running the Project
 
 1️⃣ Install dependencies
+
 Frontend:
 
 - npm install
+- cd frontend
 - npm run dev
 
 Backend:
@@ -134,3 +136,27 @@ Nodex demonstrates the ability to:
     - Build deterministic AI retrieval systems
     - Think in product-level architecture
     - Deliver polished, demo-ready applications
+
+## Screenshots
+
+### Chat Interface
+
+![Chat Interface](screenshots/01-chat-interface.png)
+
+### Knowledge Base Management
+
+![Knowledge Base](screenshots/02-knowledge-base-crud.png)
+
+### Admin Dashboard
+
+![Admin Console](screenshots/03-admin-dashboard.png)
+
+### Admin Empty State & Demo Loader
+
+![Admin Onboarding State](screenshots/04-admin-onboarding-state.png)
+
+## Authors
+
+Heba Mansour
+
+Aya Maatouk
